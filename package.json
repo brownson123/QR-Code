@@ -8,23 +8,27 @@
     "node": ">=20.11"
   },
   "scripts": {
+    "predev": "node scripts/copy-zxing.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/copy-zxing.mjs",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "test:unit": "vitest run --project unit",
     "test:int": "vitest run --project int",
+    "pretest:e2e": "node scripts/copy-zxing.mjs",
     "test:e2e": "playwright test",
     "check": "pnpm typecheck && pnpm lint && pnpm test:unit && pnpm test:int",
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local > lib/db/types.gen.ts",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
-    "gen:qr-video": "node scripts/not-implemented.mjs gen:qr-video S5"
+    "gen:qr-video": "tsx --env-file-if-exists=.env.local scripts/gen-qr-video.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.1",
+    "barcode-detector": "~3.2.2",
     "next": "^16.3.6",
     "qrcode": "^1.5.4",
     "react": "^19.3.0",

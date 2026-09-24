@@ -12,3 +12,9 @@ playwright-report/
 supabase/.branches/
 supabase/.temp/
 .DS_Store
+
+# Self-hosted zxing WebAssembly (copied by scripts/copy-zxing.mjs)
+public/zxing/
+# Generated fake-camera videos
+tests/assets/*.y4m
+tests/e2e/.auth/
