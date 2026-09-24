@@ -581,6 +581,11 @@ export type Database = {
         Args: { p_participant_id: string; p_token_hash: string }
         Returns: string
       }
+      pass_lookup: { Args: { p_token_hash: string }; Returns: Json }
+      rate_limit_hit: {
+        Args: { p_key: string; p_limit: number; p_window_seconds: number }
+        Returns: boolean
+      }
       record_scan: {
         Args: {
           p_checkpoint_id: string
