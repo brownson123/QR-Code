@@ -562,6 +562,21 @@ export type Database = {
         }
         Returns: boolean
       }
+      ingest_sheet_row: {
+        Args: {
+          p_dietary_notes?: string
+          p_dry_run?: boolean
+          p_email: string
+          p_event_id: string
+          p_external_id: string
+          p_first_name: string
+          p_last_name: string
+          p_linkedin_url?: string
+          p_search_text: string
+          p_status: Database["public"]["Enums"]["participant_status"]
+        }
+        Returns: string
+      }
       issue_pass: {
         Args: { p_participant_id: string; p_token_hash: string }
         Returns: string

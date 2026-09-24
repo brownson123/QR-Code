@@ -1,0 +1,89 @@
+import { describe, expect, it } from 'vitest';
+import { mapSheetValues, normalizeStatus, validateRow } from '@/lib/domain/sheet';
+
+const good = {
+  external_id: 'a1',
+  email: 'ada@example.com',
+  first_name: 'Ada',
+  last_name: 'Lovelace',
+  dietary_notes: '',
+  linkedin_url: '',
+  status: 'Accepted',
+};
+
+describe('sheet rows (SPEC F3, §9.2)', () => {
+  it('T-ING-17: "ACCEPTED ", "accepted", "Accepted" normalize; blank is pending; "Maybe" is invalid', () => {
+    for (const s of ['ACCEPTED ', 'accepted', 'Accepted']) expect(normalizeStatus(s)).toBe('accepted');
+    expect(normalizeStatus('')).toBe('pending');
+    expect(normalizeStatus('  ')).toBe('pending');
+    expect(normalizeStatus(undefined)).toBe('pending');
+    expect(normalizeStatus(' Waitlisted')).toBe('waitlisted');
+    expect(normalizeStatus('Maybe')).toBeNull();
+    expect(normalizeStatus('pending')).toBeNull();
+    expect(validateRow({ ...good, status: 'Maybe' })).toEqual({ ok: false, result: 'INVALID:status' });
+  });
+
+  it('T-ING-16: missing email / first_name / external_id are INVALID, listing every bad field', () => {
+    expect(validateRow({ ...good, email: '' })).toEqual({ ok: false, result: 'INVALID:email' });
+    expect(validateRow({ ...good, first_name: '  ' })).toEqual({ ok: false, result: 'INVALID:first_name' });
+    expect(validateRow({ ...good, external_id: undefined })).toEqual({ ok: false, result: 'INVALID:external_id' });
+    expect(validateRow({ status: 'bogus' })).toEqual({ ok: false, result: 'INVALID:external_id,email,first_name,status' });
+    expect(validateRow({ ...good, email: 'not-an-email' })).toEqual({ ok: false, result: 'INVALID:email' });
+  });
+
+  it('T-ING-12: the clean row has a normalized email and search_text', () => {
+    const r = validateRow({ ...good, email: ' Ade@Gmail.COM ', first_name: 'Zoë', last_name: "O'Brien" });
+    expect(r).toMatchObject({ ok: true, row: { email: 'ade@gmail.com', searchText: 'zoe o brien', status: 'accepted' } });
+  });
+
+  it('T-ING-22: a 100-char first name is fine; 101 chars is INVALID:first_name; markup is kept verbatim', () => {
+    expect(validateRow({ ...good, first_name: 'x'.repeat(100) }).ok).toBe(true);
+    expect(validateRow({ ...good, first_name: 'x'.repeat(101) })).toEqual({ ok: false, result: 'INVALID:first_name' });
+    expect(validateRow({ ...good, first_name: '<script>alert(1)</script>' })).toMatchObject({
+      ok: true,
+      row: { firstName: '<script>alert(1)</script>' },
+    });
+    expect(validateRow({ ...good, last_name: 'y'.repeat(101) })).toEqual({ ok: false, result: 'INVALID:last_name' });
+    expect(validateRow({ ...good, dietary_notes: 'z'.repeat(501) })).toEqual({ ok: false, result: 'INVALID:dietary_notes' });
+  });
+
+  it('T-ING-23: an invalid linkedin_url is dropped to null without making the row invalid', () => {
+    for (const bad of ['linkedin.com/company/x', 'https://www.linkedin.com/company/x', 'javascript:alert(1)']) {
+      expect(validateRow({ ...good, linkedin_url: bad })).toMatchObject({ ok: true, row: { linkedinUrl: null } });
+    }
+    expect(validateRow({ ...good, linkedin_url: ' https://www.linkedin.com/in/ada-l/ ' })).toMatchObject({
+      ok: true,
+      row: { linkedinUrl: 'https://www.linkedin.com/in/ada-l/' },
+    });
+  });
+
+  it('T-ING-16: blank optional fields become null/empty, not INVALID', () => {
+    expect(validateRow({ external_id: 'a', email: 'a@b.co', first_name: 'A', status: '' })).toEqual({
+      ok: true,
+      row: {
+        externalId: 'a',
+        email: 'a@b.co',
+        firstName: 'A',
+        lastName: '',
+        searchText: 'a',
+        dietaryNotes: null,
+        linkedinUrl: null,
+        status: 'pending',
+      },
+    });
+  });
+
+  it('T-GAS-07: maps rows by header name regardless of column order; skips blank rows', () => {
+    const values = [
+      ['Timestamp', 'Status', 'Email Address', 'First Name', 'Applicant ID', 'Sync Status', 'Extra question'],
+      ['1/1', 'Accepted', 'ada@example.com', 'Ada', 'id-1', 'PASS_QUEUED', 'x'],
+      ['', '', '', '', '', ''],
+      ['1/2', '', 'ben@example.com', 'Ben', 'id-2'],
+    ];
+    expect(mapSheetValues(values)).toEqual([
+      { external_id: 'id-1', email: 'ada@example.com', first_name: 'Ada', last_name: '', dietary_notes: '', linkedin_url: '', status: 'Accepted' },
+      { external_id: 'id-2', email: 'ben@example.com', first_name: 'Ben', last_name: '', dietary_notes: '', linkedin_url: '', status: '' },
+    ]);
+    expect(() => mapSheetValues([['Email Address', 'First Name']])).toThrow(/Applicant ID/);
+  });
+});

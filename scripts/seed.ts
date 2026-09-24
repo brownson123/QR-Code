@@ -4,6 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/db/types.gen';
+import { normalizeEmail, toSearchText } from '@/lib/domain/normalize';
 import { generateToken, sha256hex } from '@/lib/domain/token';
 import { renderQrPng } from '@/lib/qr/render';
 
@@ -15,11 +16,6 @@ function need(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`${name} is not set (expected in .env.local)`);
   return v;
-}
-
-// Mirrors SPEC §10.4 for demo data only; the real normalizer (toSearchText) lands in S5.
-function searchText(s: string): string {
-  return s.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 
 async function main() {
@@ -68,10 +64,10 @@ async function main() {
       .insert({
         event_id: eventId,
         external_id: `seed-${n}`,
-        email: `demo${n}@example.test`,
+        email: normalizeEmail(`demo${n}@example.test`),
         first_name: first,
         last_name: last,
-        search_text: searchText(`${first} ${last}`),
+        search_text: toSearchText(`${first} ${last}`),
         dietary_notes: i % 7 === 0 ? 'Vegetarian' : null,
         status: 'accepted',
         source: 'seed',

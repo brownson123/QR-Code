@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { sha256hex } from '@/lib/domain/token';
-import { drainOutbox, type DrainOptions } from '@/lib/email/drain';
+import { drainOutbox, drainUntilIdle, type DrainOptions } from '@/lib/email/drain';
 import { ProviderError, type EmailProvider } from '@/lib/email/provider';
-import { mockProvider, serviceClient, tokenFromEmail } from '../fixtures/mail';
+import { mockProvider, onlyEmailTo, sentTo, serviceClient, tokenFromEmail } from '../fixtures/mail';
 import { createStandardFixture, type StandardFixture } from '../fixtures/standard';
 
 let f: StandardFixture;
@@ -14,8 +14,9 @@ afterEach(async () => {
 });
 
 const db = serviceClient();
+// Until idle: rows other files left due would otherwise crowd this test's row out of a 20-row batch.
 const drain = (provider: EmailProvider, extra: Partial<DrainOptions> = {}) =>
-  drainOutbox({ db, provider, appOrigin: 'http://localhost:3100', from: 'Passline <passes@localhost>', ...extra });
+  drainUntilIdle({ db, provider, appOrigin: 'http://localhost:3100', from: 'Passline <passes@localhost>', ...extra });
 
 async function enqueue(participantId: string, kind = 'pass_issued'): Promise<string> {
   const { rows } = await f.pool.query<{ id: string }>(
@@ -46,6 +47,11 @@ async function outboxRow(id: string) {
   return row;
 }
 
+async function emailOf(participantId: string): Promise<string> {
+  const { rows } = await f.pool.query<{ email: string }>('select email from participants where id = $1', [participantId]);
+  return rows[0]?.email ?? '';
+}
+
 const makeDue = (id: string) => f.pool.query('update email_outbox set next_attempt_at = now() where id = $1', [id]);
 
 describe('outbox drain (SPEC F4)', () => {
@@ -53,9 +59,10 @@ describe('outbox drain (SPEC F4)', () => {
     const people = await Promise.all(Array.from({ length: 50 }, () => f.addParticipant(f.e1.id, { withPass: false })));
     const ids = await Promise.all(people.map((p) => enqueue(p.id)));
     const { provider, sent } = mockProvider(() => new Promise((r) => setTimeout(r, 5)));
+    const opts = { db, provider, appOrigin: 'http://localhost:3100', from: 'Passline <passes@localhost>' };
     const loop = async () => {
       for (;;) {
-        const r = await drain(provider);
+        const r = await drainOutbox(opts);
         if (r.claimed === 0) return;
       }
     };
@@ -75,7 +82,9 @@ describe('outbox drain (SPEC F4)', () => {
     const person = await f.addParticipant(f.e1.id, { withPass: false });
     await enqueue(person.id);
     const observed: Array<string | null | undefined> = [];
+    const address = await emailOf(person.id);
     const { provider } = mockProvider(async (m) => {
+      if (m.to !== address) return;
       // A separate connection: only committed data is visible here.
       const { rows } = await f.pool.query<{ revoked_at: string | null }>('select revoked_at from passes where token_hash = $1', [
         sha256hex(tokenFromEmail(m)),
@@ -129,25 +138,27 @@ describe('outbox drain (SPEC F4)', () => {
     await f.pool.query('select * from claim_outbox(20)'); // "crashes": never finishes
     expect((await outboxRow(id)).status).toBe('sending');
 
+    const address = await emailOf(person.id);
     const { provider, sent } = mockProvider();
     await drain(provider);
-    expect(sent).toHaveLength(0);
+    expect(sentTo(sent, address)).toHaveLength(0);
 
     await f.pool.query(`update email_outbox set locked_until = now() - interval '1 second' where id = $1`, [id]);
     await drain(provider);
     const row = await outboxRow(id);
     expect(row).toMatchObject({ status: 'sent', attempts: 2, sent: true });
-    expect(sent).toHaveLength(1);
+    expect(sentTo(sent, address)).toHaveLength(1);
   });
 
   it('T-MAIL-06: participant withdrawn between enqueue and drain → cancelled, no pass, no send', async () => {
     const person = await f.addParticipant(f.e1.id, { withPass: false });
     const id = await enqueue(person.id);
     await f.pool.query(`update participants set status = 'withdrawn' where id = $1`, [person.id]);
+    const address = await emailOf(person.id);
     const { provider, sent } = mockProvider();
     await drain(provider);
     expect((await outboxRow(id)).status).toBe('cancelled');
-    expect(sent).toHaveLength(0);
+    expect(sentTo(sent, address)).toHaveLength(0);
     const { rows } = await f.pool.query('select 1 from passes where participant_id = $1', [person.id]);
     expect(rows).toHaveLength(0);
   });
@@ -156,8 +167,7 @@ describe('outbox drain (SPEC F4)', () => {
     await enqueue(f.p.A, 'pass_reissued');
     const { provider, sent } = mockProvider();
     await drain(provider);
-    expect(sent).toHaveLength(1);
-    const fresh = tokenFromEmail(sent[0] ?? (() => { throw new Error('no email'); })());
+    const fresh = tokenFromEmail(onlyEmailTo(sent, await emailOf(f.p.A)));
     const old = await f.scan({ cp: f.cp.D, staff: f.staff.vol1, token: f.token.A });
     expect(old).toMatchObject({ code: 'REVOKED', reissued: true, revokeReason: 'rotated' });
     expect((await f.scan({ cp: f.cp.D, staff: f.staff.vol1, token: fresh })).code).toBe('ACCEPTED');

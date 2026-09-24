@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { drainOutbox } from '@/lib/email/drain';
-import { mockProvider, serviceClient, tokenFromEmail } from '../fixtures/mail';
+import { ingestClient, sheetRow } from '../fixtures/ingest';
+import { onlyEmailTo, tokenFromEmail } from '../fixtures/mail';
 import { createStandardFixture, type StandardFixture } from '../fixtures/standard';
 
 let f: StandardFixture;
@@ -12,13 +12,12 @@ afterAll(async () => {
 });
 
 describe('token secrecy (I-3)', () => {
-  // S2 covers email → scan. S3 extends this with the Sheet ingest in front.
-  it('T-TOK-07: after email → scan, the raw token appears in no text/json column of any public table', async () => {
-    const person = await f.addParticipant(f.e1.id, { withPass: false });
-    await f.pool.query(`insert into email_outbox (participant_id, kind) values ($1, 'pass_issued')`, [person.id]);
-    const { provider, sent } = mockProvider();
-    await drainOutbox({ db: serviceClient(), provider, appOrigin: 'http://localhost:3100', from: 'Passline <p@localhost>' });
-    const token = tokenFromEmail(sent[0] ?? (() => { throw new Error('no email'); })());
+  it('T-TOK-07: after ingest → email → scan, the raw token appears in no text/json column of any public table', async () => {
+    const c = ingestClient();
+    const row = sheetRow(f.slug);
+    expect(await c.ingest(f.slug, [row])).toEqual(['PASS_QUEUED']);
+    await c.drain(); // drains every due row, so pick out the email addressed to this participant
+    const token = tokenFromEmail(onlyEmailTo(c.mail.sent, row.email));
     expect((await f.scan({ cp: f.cp.D, staff: f.staff.vol1, token })).code).toBe('ACCEPTED');
 
     const { rows: cols } = await f.pool.query<{ table_name: string; column_name: string }>(

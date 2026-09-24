@@ -36,6 +36,17 @@ export async function drainOutbox(opts: DrainOptions): Promise<DrainResult> {
   return result;
 }
 
+// Drains batch after batch until nothing is due or the time budget is spent (after() / cron runs).
+export async function drainUntilIdle(opts: DrainOptions, budgetMs = 25_000): Promise<number> {
+  const deadline = Date.now() + budgetMs;
+  let claimed = 0;
+  for (;;) {
+    const r = await drainOutbox(opts);
+    claimed += r.claimed;
+    if (r.claimed === 0 || Date.now() > deadline) return claimed;
+  }
+}
+
 async function finish(db: Db, args: FinishArgs): Promise<void> {
   const { error } = await db.rpc('finish_outbox', args);
   if (error) throw new Error(`finish_outbox failed (${error.code})`);
