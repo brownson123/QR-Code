@@ -530,6 +530,38 @@ export type Database = {
         }
         Returns: Json
       }
+      claim_outbox: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempts: number
+          created_at: string
+          id: string
+          kind: string
+          last_error: string | null
+          locked_until: string | null
+          next_attempt_at: string
+          participant_id: string
+          provider_message_id: string | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["outbox_status"]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "email_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      finish_outbox: {
+        Args: {
+          p_id: string
+          p_last_error?: string
+          p_next_attempt_at?: string
+          p_provider_message_id?: string
+          p_status: Database["public"]["Enums"]["outbox_status"]
+        }
+        Returns: boolean
+      }
       issue_pass: {
         Args: { p_participant_id: string; p_token_hash: string }
         Returns: string
