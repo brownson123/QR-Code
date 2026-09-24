@@ -11,6 +11,11 @@ describe('normalizers (I-12)', () => {
     expect(toSearchText('Ｆｕｌｌｗｉｄｔｈ')).toBe('fullwidth');
   });
 
+  it('T-SRCH-01: Hangul stays composed (NFKD would split syllables into jamo)', () => {
+    expect(toSearchText('김민준')).toBe('김민준');
+    expect([...toSearchText('김')]).toHaveLength(1);
+  });
+
   it('T-ING-12: normalizeEmail trims and lowercases', () => {
     expect(normalizeEmail(' Ade@Gmail.COM ')).toBe('ade@gmail.com');
   });

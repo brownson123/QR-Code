@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { generateToken } from '@/lib/domain/token';
 import { passClient } from '../fixtures/pass';
 import { createStandardFixture, type StandardFixture } from '../fixtures/standard';
+import { awaitFreshWindow } from '../fixtures/window';
 
 let f: StandardFixture;
 let c: ReturnType<typeof passClient>;
@@ -54,6 +55,7 @@ describe('POST /api/pass (SPEC F5)', () => {
   });
 
   it('§15: /api/pass allows 30 requests per minute per IP, then 429', async () => {
+    await awaitFreshWindow(60);
     const statuses: number[] = [];
     for (let i = 0; i < 31; i++) statuses.push((await c.lookup({ token: generateToken() })).status);
     expect(statuses.slice(0, 30).every((s) => s === 404)).toBe(true);

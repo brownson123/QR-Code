@@ -552,6 +552,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      consume_staff_invites: {
+        Args: { p_email: string; p_user_id: string }
+        Returns: number
+      }
       finish_outbox: {
         Args: {
           p_id: string
@@ -597,6 +601,18 @@ export type Database = {
           p_token_hash: string
         }
         Returns: Json
+      }
+      search_participants: {
+        Args: { p_checkpoint_id?: string; p_event_id: string; p_query: string }
+        Returns: {
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          photo_path: string
+          scanned_here: boolean
+          status: Database["public"]["Enums"]["participant_status"]
+        }[]
       }
       void_scan: {
         Args: { p_reason: string; p_scan_id: string; p_staff_user_id: string }

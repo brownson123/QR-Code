@@ -53,6 +53,13 @@ async function main() {
   ], { defaultToNull: false });
   if (cps.error) throw cps.error;
 
+  // Dev staff: sign in at /login with these addresses; the links land in Mailpit (http://127.0.0.1:54324).
+  const invites = await db.from('staff_invites').insert([
+    { event_id: eventId, email: normalizeEmail('organizer@example.test'), role: 'organizer' },
+    { event_id: eventId, email: normalizeEmail('volunteer@example.test'), role: 'volunteer' },
+  ]);
+  if (invites.error) throw invites.error;
+
   const dir = join(process.cwd(), '.seed');
   await mkdir(dir, { recursive: true });
   for (let i = 0; i < 50; i++) {
@@ -81,6 +88,7 @@ async function main() {
     await writeFile(join(dir, `${SLUG}-${n}.png`), await renderQrPng(`${origin}/p#${token}`));
   }
   console.log(`Seeded event "${SLUG}" with 4 checkpoints and 50 participants. QR codes: .seed/${SLUG}-01..50.png`);
+  console.log('Staff invites: organizer@example.test, volunteer@example.test (sign-in links arrive in Mailpit at http://127.0.0.1:54324).');
 }
 
 main().catch((err: unknown) => {

@@ -4,6 +4,7 @@ import { signedPhotoUrl, PHOTO_URL_TTL_SECONDS } from '@/lib/storage/photos';
 import { requireEnv } from '../fixtures/db';
 import { passClient } from '../fixtures/pass';
 import { createStandardFixture, type StandardFixture } from '../fixtures/standard';
+import { awaitFreshWindow } from '../fixtures/window';
 
 let f: StandardFixture;
 let c: ReturnType<typeof passClient>;
@@ -128,6 +129,7 @@ describe('POST /api/pass/photo (SPEC F5)', () => {
 
   it('T-PASS-09: the 11th upload within an hour is 429', async () => {
     const jpeg = await smallJpeg();
+    await awaitFreshWindow(3600, 20);
     const statuses: number[] = [];
     for (let i = 0; i < 11; i++) statuses.push((await c.upload(f.token.B, jpeg)).status);
     expect(statuses.slice(0, 10)).toEqual(Array(10).fill(200));

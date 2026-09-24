@@ -18,3 +18,13 @@ export async function signedPhotoUrl(
   if (error) throw new Error(`photo signing failed (${error.name})`);
   return data.signedUrl;
 }
+
+// Batch form for lists (manual search): one request for up to 10 photos.
+export async function signedPhotoUrls(db: SupabaseClient<Database>, paths: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (paths.length === 0) return out;
+  const { data, error } = await db.storage.from(PHOTO_BUCKET).createSignedUrls(paths, PHOTO_URL_TTL_SECONDS);
+  if (error) throw new Error(`photo signing failed (${error.name})`);
+  for (const item of data) if (item.path && item.signedUrl) out.set(item.path, item.signedUrl);
+  return out;
+}

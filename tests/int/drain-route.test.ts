@@ -12,7 +12,10 @@ afterAll(async () => {
 });
 
 const call = (authorization?: string) =>
-  POST(new Request('http://localhost/api/email/drain', { method: 'POST', headers: authorization ? { authorization } : {} }));
+  // Called the way Next.js calls a route handler: request plus a context with (empty) params.
+  POST(new Request('http://localhost/api/email/drain', { method: 'POST', headers: authorization ? { authorization } : {} }), {
+    params: Promise.resolve({}),
+  });
 
 describe('POST /api/email/drain (SPEC §9.3)', () => {
   it('F4: missing or wrong bearer → 401 and nothing is claimed; DRAIN_SECRET → 200 and the row is sent', async () => {
