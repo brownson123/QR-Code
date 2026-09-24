@@ -106,3 +106,13 @@ export function mapSheetValues(values: string[][]): Array<Required<SheetRowInput
     .map((row) => Object.fromEntries(keys.map((k) => [k, cell(row, k)])) as Required<SheetRowInput>)
     .filter((r) => keys.some((k) => r[k] !== ''));
 }
+
+// F10: organizers paste either the Sheet's id or its docs.google.com URL.
+const SHEET_ID = /^[A-Za-z0-9_-]{20,100}$/;
+const SHEET_URL = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/([A-Za-z0-9_-]{20,100})(?:[/?#].*)?$/;
+
+export function parseSheetId(input: string): string | null {
+  const s = input.trim();
+  if (SHEET_ID.test(s)) return s;
+  return SHEET_URL.exec(s)?.[1] ?? null;
+}

@@ -395,6 +395,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "scan_attempts_checkpoint_id_fkey"
+            columns: ["checkpoint_id"]
+            isOneToOne: false
+            referencedRelation: "v_checkpoint_counts"
+            referencedColumns: ["checkpoint_id"]
+          },
+          {
             foreignKeyName: "scan_attempts_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
@@ -458,6 +465,13 @@ export type Database = {
             referencedColumns: ["id", "event_id"]
           },
           {
+            foreignKeyName: "scans_checkpoint_id_event_id_fkey"
+            columns: ["checkpoint_id", "event_id"]
+            isOneToOne: false
+            referencedRelation: "v_checkpoint_counts"
+            referencedColumns: ["checkpoint_id", "event_id"]
+          },
+          {
             foreignKeyName: "scans_participant_id_event_id_fkey"
             columns: ["participant_id", "event_id"]
             isOneToOne: false
@@ -516,7 +530,25 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_checkpoint_counts: {
+        Row: {
+          capacity: number | null
+          checkpoint_id: string | null
+          event_id: string | null
+          kind: Database["public"]["Enums"]["checkpoint_kind"] | null
+          live_scans: number | null
+          name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checkpoints_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _prior: {
@@ -529,6 +561,44 @@ export type Database = {
           pa: Database["public"]["Tables"]["participants"]["Row"]
         }
         Returns: Json
+      }
+      add_walk_in: {
+        Args: {
+          p_check_in: boolean
+          p_email: string
+          p_event_id: string
+          p_first_name: string
+          p_last_name: string
+          p_organizer_id: string
+          p_search_text: string
+          p_send_pass: boolean
+        }
+        Returns: Json
+      }
+      admin_participants: {
+        Args: {
+          p_event_id: string
+          p_no_show?: boolean
+          p_query?: string
+          p_status?: Database["public"]["Enums"]["participant_status"]
+        }
+        Returns: {
+          checked_in: boolean
+          created_at: string
+          dietary_notes: string
+          email: string
+          external_id: string
+          first_name: string
+          id: string
+          is_test: boolean
+          last_name: string
+          live_scans: number
+          pass_state: string
+          photo_path: string
+          photo_updated_at: string
+          source: string
+          status: Database["public"]["Enums"]["participant_status"]
+        }[]
       }
       claim_outbox: {
         Args: { p_limit?: number }
@@ -556,6 +626,22 @@ export type Database = {
         Args: { p_email: string; p_user_id: string }
         Returns: number
       }
+      delete_checkpoint: {
+        Args: { p_actor: string; p_checkpoint_id: string; p_event_id: string }
+        Returns: string
+      }
+      delete_participant: {
+        Args: { p_actor: string; p_event_id: string; p_participant_id: string }
+        Returns: Json
+      }
+      enqueue_pass: {
+        Args: { p_actor: string; p_event_id: string; p_participant_id: string }
+        Returns: string
+      }
+      event_metrics: {
+        Args: { p_event_id: string; p_now?: string }
+        Returns: Json
+      }
       finish_outbox: {
         Args: {
           p_id: string
@@ -581,6 +667,15 @@ export type Database = {
         }
         Returns: string
       }
+      invite_staff: {
+        Args: {
+          p_actor: string
+          p_email: string
+          p_event_id: string
+          p_role: Database["public"]["Enums"]["staff_role"]
+        }
+        Returns: string
+      }
       issue_pass: {
         Args: { p_participant_id: string; p_token_hash: string }
         Returns: string
@@ -601,6 +696,14 @@ export type Database = {
           p_token_hash: string
         }
         Returns: Json
+      }
+      remove_staff: {
+        Args: { p_actor: string; p_event_id: string; p_user_id: string }
+        Returns: string
+      }
+      revoke_pass: {
+        Args: { p_actor: string; p_event_id: string; p_participant_id: string }
+        Returns: string
       }
       search_participants: {
         Args: { p_checkpoint_id?: string; p_event_id: string; p_query: string }

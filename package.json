@@ -23,7 +23,8 @@
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local > lib/db/types.gen.ts",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
-    "gen:qr-video": "tsx --env-file-if-exists=.env.local scripts/gen-qr-video.ts"
+    "gen:qr-video": "tsx --env-file-if-exists=.env.local scripts/gen-qr-video.ts",
+    "event:create": "tsx --env-file-if-exists=.env.local scripts/create-event.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

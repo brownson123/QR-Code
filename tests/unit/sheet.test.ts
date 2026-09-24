@@ -87,3 +87,14 @@ describe('sheet rows (SPEC F3, §9.2)', () => {
     expect(() => mapSheetValues([['Email Address', 'First Name']])).toThrow(/Applicant ID/);
   });
 });
+
+describe('linking a Sheet (SPEC F10)', () => {
+  it('F10: accepts a Sheet id or a docs.google.com URL; rejects anything else', async () => {
+    const { parseSheetId } = await import('@/lib/domain/sheet');
+    const id = '1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789';
+    expect(parseSheetId(id)).toBe(id);
+    expect(parseSheetId(`https://docs.google.com/spreadsheets/d/${id}/edit#gid=0`)).toBe(id);
+    expect(parseSheetId(`  https://docs.google.com/spreadsheets/d/${id}  `)).toBe(id);
+    for (const bad of ['not a sheet', 'https://evil.example/spreadsheets/d/' + id, 'short', '']) expect(parseSheetId(bad)).toBeNull();
+  });
+});
