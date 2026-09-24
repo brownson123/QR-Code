@@ -1,0 +1,64 @@
+.shell { min-height: 100dvh; }
+.header { position: sticky; top: 0; z-index: 5; background: var(--card); border-bottom: 1px solid var(--line); padding: 8px 16px 0; }
+.eventName { font-weight: 700; font-size: 18px; }
+.nav { display: flex; gap: 4px; overflow-x: auto; }
+.tab { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent; white-space: nowrap; }
+.tab[aria-current='page'] { color: var(--fg); font-weight: 700; border-bottom-color: var(--accent); }
+.main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+.main h1 { font-size: 24px; margin: 0 0 12px; }
+.main h2 { font-size: 18px; margin: 24px 0 8px; }
+
+.alert { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; margin: 0 0 12px; font-weight: 600; }
+.alertBad { background: #fee2e2; color: var(--bad); border: 1px solid #fca5a5; }
+.alertWarn { background: #fef3c7; color: var(--warn); border: 1px solid #fcd34d; }
+.alertOk { background: #dcfce7; color: var(--ok); border: 1px solid #86efac; }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.tileLabel { display: block; font-size: 14px; color: var(--muted); }
+.tileValue { display: block; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tileHint { display: block; font-size: 13px; color: var(--muted); }
+
+.tableWrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.table th, .table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.table th { font-size: 13px; color: var(--muted); font-weight: 600; }
+.table tr:last-child td { border-bottom: 0; }
+.num { text-align: right !important; font-variant-numeric: tabular-nums; }
+
+.badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #e5e7eb; color: #111; white-space: nowrap; }
+.badgeOk { background: #dcfce7; color: var(--ok); }
+.badgeWarn { background: #fef3c7; color: var(--warn); }
+.badgeBad { background: #fee2e2; color: var(--bad); }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-bottom: 12px; }
+.field { display: grid; gap: 4px; font-size: 14px; }
+.input { min-height: 44px; padding: 0 10px; font: inherit; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.check { display: inline-flex; gap: 8px; align-items: center; min-height: 44px; }
+.check input { width: 20px; height: 20px; }
+.secondary { background: #fff; color: var(--accent); }
+.danger { background: var(--bad); border-color: var(--bad); }
+.small { min-height: 44px; padding: 0 12px; font-size: 14px; }
+.actions { display: flex; flex-wrap: nowrap; gap: 6px; }
+.muted { color: var(--muted); }
+.linkButton { display: inline-flex; align-items: center; text-decoration: none; }
+
+.drawer { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 12px 0; }
+.drawer h2 { margin-top: 0; }
+.photo { width: 160px; height: 160px; object-fit: cover; border-radius: 12px; background: #e5e7eb; }
+
+.dialog { border: 0; border-radius: 16px; padding: 20px; width: min(92vw, 460px); color: var(--fg); }
+.dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+.dialog h2 { margin-top: 0; }
+.dialogForm { display: grid; gap: 10px; }
+.dialogActions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 12px; }
+
+.chart { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chartGrid { stroke: #e5e7eb; stroke-width: 1; }
+.chartAxis { fill: var(--muted); font-size: 11px; }
+.chartBar { fill: var(--accent); }
+.chartHit { fill: transparent; cursor: default; }
+.chartHit:hover + .chartBar, .chartHit:focus-visible + .chartBar { fill: #1e3a8a; }
+.tooltip { position: absolute; pointer-events: none; background: #111; color: #fff; font-size: 13px; padding: 6px 8px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, -100%); }
+.chartTable summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; color: var(--accent); }

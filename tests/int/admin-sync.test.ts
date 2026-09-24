@@ -54,6 +54,14 @@ describe('Sync now (SPEC F10) through the admin API', () => {
     expect(rows).toEqual([{ actor_kind: 'staff' }]);
   });
 
+  it('F10 / §11: the event reports the last applied sync time (dry runs do not count)', async () => {
+    const { rows } = await f.pool.query<{ at: Date }>(`select max(created_at) as at from audit_log where action = 'sheet.sync' and event_id = $1`, [f.e1.id]);
+    const res = await c.call('getEvent', org, { slug: f.slug });
+    expect(obj(res.body).lastSyncAt).toBe(rows[0]?.at.toISOString());
+    await c.call('syncSheet', org, { slug: f.slug }, { body: { dryRun: true } });
+    expect(obj((await c.call('getEvent', org, { slug: f.slug })).body).lastSyncAt).toBe(rows[0]?.at.toISOString());
+  });
+
   it('F10: an invalid Sheet link is 400', async () => {
     expect((await c.call('updateEvent', org, { slug: f.slug }, { method: 'PATCH', body: { sheet: 'not a sheet' } })).status).toBe(400);
   });

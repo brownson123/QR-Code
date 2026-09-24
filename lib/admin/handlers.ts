@@ -488,8 +488,20 @@ export function createAdminApi(deps: AdminDeps) {
     async getEvent(request: Request, params: Params) {
       const g = await guard(request, params);
       if (g instanceof Response) return g;
-      const e = await loadEvent(g.eventId);
-      return json({ name: e.name, venue: e.venue, startsAt: e.starts_at, endsAt: e.ends_at, timezone: e.timezone, sheetId: e.sheet_id });
+      const [e, { data: lastSync, error }] = await Promise.all([
+        loadEvent(g.eventId),
+        db.from('audit_log').select('created_at').eq('event_id', g.eventId).eq('action', 'sheet.sync').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      if (error) throw new Error(`last sync load failed (${error.code})`);
+      return json({
+        name: e.name,
+        venue: e.venue,
+        startsAt: e.starts_at,
+        endsAt: e.ends_at,
+        timezone: e.timezone,
+        sheetId: e.sheet_id,
+        lastSyncAt: lastSync ? new Date(lastSync.created_at).toISOString() : null,
+      });
     },
 
     // PATCH /api/admin/[slug]/event  { sheet: id | URL | null }
