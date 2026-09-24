@@ -26,7 +26,8 @@ Passline emails QR passes to accepted event applicants and scans them for door c
 | New migration | `supabase migration new <snake_case_name>` |
 | Regenerate DB types | `pnpm db:types` (`supabase gen types typescript --local > lib/db/types.gen.ts`) |
 | Seed demo event (50 fake participants, QR PNGs to `./.seed/`) | `pnpm seed` |
-| Read dev emails | files in `./.mail/` |
+| Read dev emails | `./.mail/*.eml` (open in Apple Mail); QR images in `./.mail/qr/<Event>-<First>.png` |
+| Delete dev emails + seed images | `pnpm clean:dev` |
 
 Prefer running a single test file while iterating (`pnpm vitest run path/to/file.test.ts`). Run the full relevant suite before declaring done.
 

@@ -1,9 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { EmailMessage, EmailProvider } from './provider';
+import { writeUniqueFile } from '@/lib/dev/files';
+import { toFileLabel } from '@/lib/domain/file-label';
+import type { EmailMessage, EmailProvider, InlineImage } from './provider';
 
-// Dev/test provider (SPEC §12): writes an .eml file you can open in a mail client. No network.
+// Dev/test provider (SPEC §12): writes an .eml file you can open in a mail client, plus each inline
+// image (the QR code) as its own file in <dir>/qr/, named "<Event>-<First>.png" (T-MAIL-13). No network.
 export function createConsoleProvider(opts: { dir?: string } = {}): EmailProvider {
   const dir = opts.dir ?? join(process.cwd(), '.mail');
   return {
@@ -13,9 +16,20 @@ export function createConsoleProvider(opts: { dir?: string } = {}): EmailProvide
       await mkdir(dir, { recursive: true });
       const stamp = new Date().toISOString().replace(/[:.]/g, '-');
       await writeFile(join(dir, `${stamp}-${id}.eml`), toMime(message, id), 'utf8');
+      // Re-sanitize: fileLabel is untrusted input as far as the file system is concerned.
+      const label = toFileLabel(message.fileLabel ?? '');
+      for (const img of message.inlineImages) {
+        await writeUniqueFile(join(dir, 'qr'), label, extensionFor(img), img.content);
+      }
       return { id };
     },
   };
+}
+
+function extensionFor(img: InlineImage): string {
+  if (img.contentType === 'image/png') return '.png';
+  if (img.contentType === 'image/jpeg') return '.jpg';
+  return '.bin';
 }
 
 function wrap64(buf: Buffer): string {

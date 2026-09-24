@@ -1,8 +1,18 @@
 import type { NextConfig } from 'next';
 import { securityHeaders } from './lib/domain/security-headers';
 
+// Local dev only: the stable tunnel host (e.g. "brownsons-macbook-air.tail1234.ts.net") so a phone can
+// load pages like /p#… through it. Next 16 blocks dev assets requested from unlisted hosts. A full URL
+// is accepted too. Ignored by production builds. See README "A tunnel URL that never changes".
+function devPublicHosts(): string[] {
+  const raw = process.env.DEV_PUBLIC_HOST?.trim();
+  if (!raw) return [];
+  return [raw.includes('://') ? new URL(raw).hostname : raw];
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  allowedDevOrigins: devPublicHosts(),
   poweredByHeader: false,
   // forbidden() in the admin layout returns a real 403 (T-ADM-01). Experimental in Next 16.
   experimental: { authInterrupts: true },

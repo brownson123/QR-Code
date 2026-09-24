@@ -832,7 +832,7 @@ After a volunteer's own scan, "Undo last" is visible for 120 s. It asks for a re
 - **QR image:** embed as an inline attachment referenced by `cid:` if the provider supports it. Otherwise attach it as a normal PNG attachment as well (§17 A1). Do **not** use a `data:` URI, because many clients block them.
 - **Escape** all interpolated values. Keep the HTML well under Gmail's ~102 KB clipping threshold.
 - **Disable open and click tracking.** Tracking rewrites links, which leaks fragments into redirect logs, and adds pixels.
-- **Dev/test:** `EMAIL_PROVIDER=console` writes `.eml`-style output to `./.mail/` and never calls the network.
+- **Dev/test:** `EMAIL_PROVIDER=console` writes `.eml`-style output to `./.mail/` and never calls the network. It also saves each QR image to `./.mail/qr/<Event>-<First>.png` (never overwriting: `-2`, `-3`… on repeats) so passes can be shown to a scanner without opening the email. The label travels as `EmailMessage.fileLabel`, which real providers never send.
 
 ---
 
@@ -979,6 +979,8 @@ select a.checkpoint_id as x, b.checkpoint_id as y, count(*) as both_attended
 | T-MAIL-10 | `EMAIL_PROVIDER=console` | no network call (fetch spy), file written to `.mail/` | U |
 | T-MAIL-11 | Organizer resends | new pass active; old token → `REVOKED` + `reissued: true` | I |
 | T-MAIL-12 | Real inboxes: Gmail web, Gmail iOS (dark mode), Apple Mail, Outlook web, college email | arrives in inbox (not spam); QR scannable off each screen | M |
+| T-MAIL-13 | Console provider sends a pass for "Hack Day" / "Ada" three times, and 10 in parallel | `qr/Hack-Day-Ada.png`, `-2`, `-3`, byte-identical to the inline image; 10 parallel sends → 10 files; Resend request body never contains the label | U |
+| T-MAIL-14 | `toFileLabel` with accents, punctuation, `../`, empty input, 100-char names | `Cafe-Night-Zoe`; no `/`, `\\` or `..` survive; `pass` fallback; ≤ 80 chars | U |
 
 ### 14.5 Pass page & photo — `T-PASS`
 | ID | Scenario | Expected | L |
@@ -1246,12 +1248,14 @@ Each slice ends with its tests green in CI and a short demo.
 | `DRAIN_SECRET` | server + scheduler | |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | server | Sync now (read-only Sheets scope) |
 | `EMAIL_PROVIDER` | server | `console` \| `resend` |
+| `DEV_PUBLIC_HOST` | `next.config.ts`, dev only | Optional stable tunnel host, added to `allowedDevOrigins` so a phone can open pages through it |
 | `RESEND_API_KEY`, `EMAIL_FROM` | server | |
 
 ---
 
 ## 20. Changelog
 - **v0.1 (2026-09-23)** — Initial draft.
+- **v0.2 (2026-09-24)** — Console provider saves QR images as `.mail/qr/<Event>-<First>.png` (T-MAIL-13/14); `pnpm seed` uses the same naming; optional `DEV_PUBLIC_HOST`; `apps-script/Setup.gs` (form setup, connect an existing Sheet, Applicant ID backfill).
 
 ---
 

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/db/types.gen';
+import { toFileLabel } from '@/lib/domain/file-label';
 import { nextAttempt, sanitizeError } from '@/lib/domain/outbox';
 import { generateToken, sha256hex } from '@/lib/domain/token';
 import { renderQrPng } from '@/lib/qr/render';
@@ -88,6 +89,7 @@ async function processRow(opts: DrainOptions, row: OutboxRow): Promise<Exclude<k
       from: opts.from,
       ...email,
       idempotencyKey: `${row.id}:${row.attempts}`,
+      fileLabel: toFileLabel(p.events.name, p.first_name),
     }));
   } catch (err) {
     // 5. Failure: back off, or give up after the last attempt. last_error is sanitized (I-11).

@@ -13,6 +13,11 @@ export interface EmailMessage {
   text: string;
   inlineImages: InlineImage[];
   idempotencyKey: string;
+  /**
+   * Readable name for dev artifacts, e.g. "Demo-Hack-Day-Zoe" (see toFileLabel). Only the console
+   * provider uses it, to name the QR image it saves. Real providers must never send it anywhere.
+   */
+  fileLabel?: string;
 }
 
 export interface EmailProvider {

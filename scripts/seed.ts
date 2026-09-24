@@ -1,14 +1,17 @@
 // `pnpm seed`: a demo event with 50 fake accepted participants and their QR PNGs in ./.seed/.
 // Local Supabase only. Uses supabase-js directly (no server-only modules) so it runs under tsx.
-import { mkdir, writeFile } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@/lib/db/types.gen';
+import { writeUniqueFile } from '@/lib/dev/files';
+import { toFileLabel } from '@/lib/domain/file-label';
 import { normalizeEmail, toSearchText } from '@/lib/domain/normalize';
 import { generateToken, sha256hex } from '@/lib/domain/token';
 import { renderQrPng } from '@/lib/qr/render';
 
 const SLUG = 'demo';
+const EVENT_NAME = 'Demo Hack Day';
 const FIRST = ['Ada', 'Zoë', 'Liam', 'Priya', 'Mateo', 'Aisha', 'Kenji', 'Sofía', 'Noah', 'Chloé'];
 const LAST = ["O'Brien", 'Nguyen', 'Okafor', 'Smith', 'García', 'Kowalski', 'Haddad', 'Li', 'Martin', 'Adebayo'];
 
@@ -35,7 +38,7 @@ async function main() {
     .from('events')
     .insert({
       slug: SLUG,
-      name: 'Demo Hack Day',
+      name: EVENT_NAME,
       venue: 'Demo Hall',
       starts_at: startsAt.toISOString(),
       ends_at: new Date(startsAt.getTime() + 10 * 3600 * 1000).toISOString(),
@@ -60,8 +63,9 @@ async function main() {
   ]);
   if (invites.error) throw invites.error;
 
+  // .seed/ only ever holds this script's output; clear images from earlier runs so names start at 1.
   const dir = join(process.cwd(), '.seed');
-  await mkdir(dir, { recursive: true });
+  await rm(dir, { recursive: true, force: true });
   for (let i = 0; i < 50; i++) {
     const first = FIRST[i % FIRST.length] ?? 'Demo';
     const last = LAST[Math.floor(i / FIRST.length) % LAST.length] ?? 'Person';
@@ -85,9 +89,10 @@ async function main() {
     const token = generateToken();
     const pass = await db.rpc('issue_pass', { p_participant_id: p.data.id, p_token_hash: sha256hex(token) });
     if (pass.error) throw pass.error;
-    await writeFile(join(dir, `${SLUG}-${n}.png`), await renderQrPng(`${origin}/p#${token}`));
+    // "<Event>-<First>.png", with -2, -3… for repeated first names (same scheme as .mail/qr/).
+    await writeUniqueFile(dir, toFileLabel(EVENT_NAME, first), '.png', await renderQrPng(`${origin}/p#${token}`));
   }
-  console.log(`Seeded event "${SLUG}" with 4 checkpoints and 50 participants. QR codes: .seed/${SLUG}-01..50.png`);
+  console.log(`Seeded event "${SLUG}" with 4 checkpoints and 50 participants. QR codes: .seed/${toFileLabel(EVENT_NAME)}-<First>.png`);
   console.log('Staff invites: organizer@example.test, volunteer@example.test (sign-in links arrive in Mailpit at http://127.0.0.1:54324).');
 }
 

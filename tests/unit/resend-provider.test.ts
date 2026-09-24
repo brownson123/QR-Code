@@ -26,6 +26,14 @@ describe('resend provider (SPEC §12, §17 A1)', () => {
     });
   });
 
+  it('T-MAIL-13: the dev-only fileLabel is never sent to Resend', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => Response.json({ id: 'msg_1' }));
+    await createResendProvider({ apiKey: 'k', fetchImpl }).send({ ...message, fileLabel: 'Hack-Day-Ada' });
+    const [, init] = fetchImpl.mock.calls[0] ?? [];
+    expect(String(init?.body)).not.toContain('Hack-Day-Ada');
+    expect(String(init?.body)).not.toContain('fileLabel');
+  });
+
   it('T-MAIL-04: a 429 surfaces Retry-After and keeps the response body out of the error', async () => {
     const fetchImpl = vi.fn<typeof fetch>(
       async () => new Response('{"message":"too many for ada@example.com"}', { status: 429, headers: { 'Retry-After': '120' } }),
