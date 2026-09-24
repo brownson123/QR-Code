@@ -183,3 +183,13 @@ Commit after each green step with a message like `S1: record_scan capacity lock 
 - **DST:** 2026-11-01 01:00–02:00 happens twice in Toronto. Bucket in UTC, label in local time.
 - **Serverless has no shared memory.** Rate limits, locks and queues live in Postgres.
 - **`sharp` strips metadata by default**, but you must call `.rotate()` to apply EXIF orientation *before* it's stripped. Otherwise photos come out sideways.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
