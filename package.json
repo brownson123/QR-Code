@@ -20,11 +20,13 @@
     "pretest:e2e": "node scripts/copy-zxing.mjs",
     "test:e2e": "playwright test",
     "check": "pnpm typecheck && pnpm lint && pnpm test:unit && pnpm test:int",
+    "check:bundle": "next build && node --env-file-if-exists=.env.local scripts/check-bundle.mjs",
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local > lib/db/types.gen.ts",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "gen:qr-video": "tsx --env-file-if-exists=.env.local scripts/gen-qr-video.ts",
-    "event:create": "tsx --env-file-if-exists=.env.local scripts/create-event.ts"
+    "event:create": "tsx --env-file-if-exists=.env.local scripts/create-event.ts",
+    "load-test": "tsx --env-file=.env.test scripts/load-test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

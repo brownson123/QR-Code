@@ -25,3 +25,5 @@ jobs:
           version: latest
       - run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
       - run: pnpm test:int
+      # T-SEC-03: build with the local-stack env, then scan the client bundle for server secrets.
+      - run: set -a && . ./.env.test && set +a && pnpm check:bundle

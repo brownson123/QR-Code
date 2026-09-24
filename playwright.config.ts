@@ -14,11 +14,17 @@ export default defineConfig({
   retries: 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: { baseURL: origin, trace: 'retain-on-failure' },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  globalSetup: './tests/e2e/global-setup.ts',
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testIgnore: /audit\// },
+    // T-SEC-05 / T-PRIV-03: runs after every other e2e test and inspects what they left behind.
+    { name: 'audit', testMatch: /audit\/.*\.spec\.ts/, dependencies: ['chromium'] },
+  ],
   webServer: {
-    command: `pnpm dev --port ${port}`,
+    // Server output is kept for T-SEC-05. Never reuse a running server: its log isn't ours.
+    command: `mkdir -p .e2e && pnpm dev --port ${port} 2>&1 | tee .e2e/server.log`,
     url: origin,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
     env: { NEXT_PUBLIC_APP_ORIGIN: origin },
   },
