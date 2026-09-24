@@ -1,0 +1,27 @@
+name: Nightly concurrency
+
+# T-CONC-07: loop T-CONC-01, -02 and -03 100 times. A flake here is a bug, not noise.
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+jobs:
+  concurrency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor
+      - run: pnpm vitest run --project int tests/int/concurrency.test.ts
+        env:
+          CONC_ITERATIONS: '100'

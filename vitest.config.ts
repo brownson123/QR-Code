@@ -25,6 +25,7 @@ export default defineConfig({
         test: {
           name: 'int',
           allowOnly: false,
+          fileParallelism: false,
           include: ['tests/int/**/*.test.ts'],
           environment: 'node',
           env: testEnv,
