@@ -1,0 +1,1 @@
+select slug, name from events;

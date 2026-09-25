@@ -21,6 +21,8 @@ Everything is scoped to one **event**, identified by its slug in the URL (`demo`
 
 **Switching events:** there's no event picker yet. Change the slug in the address bar, e.g. `/admin/demo` ↔ `/admin/test-2026`. After signing in you may land on the plain home page; type the `/admin/<slug>` or `/scan/<slug>` address from there.
 
+**"Organizer access only"** means you're signed in with an account that isn't an organizer of *that* event, for example the volunteer account, or `you@example.com` (organizer of `test-2026`, not `demo`). See [Troubleshooting](#troubleshooting).
+
 ### Admin tabs (`/admin/<slug>`)
 
 | Tab | Use it to |
@@ -53,7 +55,9 @@ Setting someone to Withdrawn or Rejected cancels their pass. Clearing an accepte
 
 ## Running it locally
 
-**Prerequisites:** Node 22, pnpm 10, Docker Desktop (running), and the Supabase CLI.
+**Prerequisites:** Node 22, pnpm 10, Docker Desktop (running), the Supabase CLI, and `cloudflared` (`brew install cloudflared`) for the Google Sheet connection.
+
+### First time only
 
 ```bash
 pnpm install
@@ -61,7 +65,7 @@ supabase start
 
 # Create .env.local with the local keys and two fresh secrets (overwrites an existing .env.local)
 eval "$(supabase status -o env | grep -E '^(ANON_KEY|SERVICE_ROLE_KEY)=')"
-cat > .env.local <<EOF
+cat > .env.local <<ENV
 NEXT_PUBLIC_APP_ORIGIN=http://localhost:3000
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY
@@ -69,20 +73,61 @@ SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
 SHEET_INGEST_SECRET=$(openssl rand -hex 32)
 DRAIN_SECRET=$(openssl rand -hex 32)
 EMAIL_PROVIDER=console
-EOF
-
-pnpm db:reset                      # empty database with all migrations
-pnpm event:create --slug test-2026 --name "Test Event" --venue "Home" \
-  --starts 2026-10-01T09:00 --ends 2026-10-01T18:00 --organizer you@example.com
-pnpm seed                          # optional: "demo" event, 50 accepted people, 4 open checkpoints
-pnpm dev                           # http://localhost:3000
+ENV
 ```
 
-**Signing in locally:** every sign-in email goes to the local mail catcher (Mailpit, usually `http://127.0.0.1:54324`; `supabase status` shows the exact URL), not a real inbox. Sign in with:
-- the `--organizer` email you gave `event:create` (organizer of that event), or
-- `organizer@example.test` / `volunteer@example.test`, which `pnpm seed` invites to the demo event.
+Check that both keys are filled in (each line should continue with `eyJ…`):
 
-Use a private window for a second account.
+```bash
+grep -E '^(NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY)=.+' .env.local | cut -c1-45
+```
+
+### Every session
+
+Use three terminal tabs.
+
+**Tab 1: the app.**
+```bash
+open -a Docker                     # wait until Docker says it's running
+supabase start
+pnpm dev                           # http://localhost:3000, leave it running
+```
+
+**Tab 2: the tunnel** (only needed for the Google Sheet; see [Letting Google reach your laptop](#letting-google-reach-your-laptop)).
+```bash
+cloudflared tunnel --url http://localhost:3000     # leave it running
+```
+
+**Tab 3: commands.** A clean slate, when you want one:
+```bash
+pnpm clean:dev                     # delete .mail/ and .seed/
+pnpm db:reset                      # empty database: deletes ALL events, people and sign-ins
+pnpm seed                          # "demo" event: 50 accepted people, Door/Lunch/Workshop/Raffle open
+```
+
+`pnpm db:reset` deletes the `demo` event too. **Always run `pnpm seed` straight after it**, or the Sheet gets `ERROR HTTP 404` and every earlier QR image scans as an unknown code. You'll also need to sign in again.
+
+To create an extra event with you as its organizer:
+```bash
+pnpm event:create --slug test-2026 --name "Test Event" --venue "Home" \
+  --starts 2026-10-01T09:00 --ends 2026-10-01T18:00 --organizer you@example.com
+```
+Its Door checkpoint starts **closed**. Open it on the Checkpoints tab before scanning.
+
+When you're done, press Ctrl+C in tabs 1 and 2, then run `supabase stop`.
+
+### Signing in locally
+
+Every sign-in email goes to the local mail catcher, **Mailpit**, at `http://127.0.0.1:54324`, not a real inbox. (`supabase status` shows the exact URL.)
+
+1. Go to `localhost:3000/login` and enter the email.
+2. Open Mailpit **in the same browser window** and click the link in the newest email. A sign-in only completes in the window that requested it, so for a second account in a private window, open Mailpit inside that private window.
+
+Accounts you can use:
+- `organizer@example.test` and `volunteer@example.test`, which `pnpm seed` invites to `demo`;
+- the `--organizer` email you gave `event:create`, for that event.
+
+Links work once and expire; if one fails, request a new one.
 
 ### Where passes end up locally
 
@@ -91,14 +136,16 @@ With `EMAIL_PROVIDER=console`, nothing is really emailed:
 | What | Where |
 |------|-------|
 | The full pass email | `.mail/*.eml`. Double-click to open it in Apple Mail. |
-| **The QR image alone** | **`.mail/qr/<Event>-<First>.png`**, e.g. `Test-Event-Ada.png` |
+| **The QR image alone** | **`.mail/qr/<Event>-<First>.png`**, e.g. `Demo-Hack-Day-Ada.png` |
 | QR images for the seeded demo people | `.seed/Demo-Hack-Day-<First>.png` |
 
-Files are never overwritten. A second person with the same first name, or a resent pass, gets `-2`, `-3`, and so on. **The highest number is the newest code**; after a resend, the older file is how you test the "old code" screen. `pnpm clean:dev` deletes `.mail/` and `.seed/`.
+Folders starting with a dot are hidden in Finder. Open them from the terminal with `open .mail/qr` or `open .seed`.
+
+Files are never overwritten. A second person with the same first name, or a resent pass, gets `-2`, `-3`, and so on. **The highest number is the newest code**; after a resend, the older file is how you test the "old code" screen. Images left over from before a `pnpm db:reset` belong to deleted people and scan as unknown codes; `pnpm clean:dev` clears them.
 
 ### Scanning locally
 
-Use your **laptop's webcam** as the scanner (`localhost:3000/scan/<slug>`) and show the QR images from your phone. Phones can't sign in to the local app: the login page and scanner talk to Supabase at `127.0.0.1`, which on a phone means the phone itself. Checkpoints start closed, so open the Door on the Checkpoints tab first.
+Use your **laptop's webcam** as the scanner (`localhost:3000/scan/<slug>`) and show the QR images from your phone (AirDrop them over). Phones can't sign in to the local app: the login page and scanner talk to Supabase at `127.0.0.1`, which on a phone means the phone itself.
 
 ---
 
@@ -108,10 +155,15 @@ The Sheet talks to the app through `apps-script/Code.gs`. `apps-script/Setup.gs`
 
 | Function | When |
 |----------|------|
-| `setupTestForm` | Starting fresh: run it from a new, empty Google Sheet. It creates a form with the right questions, links it, adds the extra columns and a Status dropdown, sets the script properties, and installs both triggers. The execution log prints the form link. |
-| `connectExistingSheet` | You already have a form and Sheet: sets the script properties and installs the triggers. |
-| `backfillApplicantIds` | Your existing Sheet has responses from before the script was installed. Run once. |
-| `updateEndpoint` | You're pointing the Sheet at a different app URL, e.g. moving from your tunnel to Vercel. |
+| `setupTestForm` | Starting fresh: run it from a new, empty Google Sheet. It creates a form with the right questions, links it, adds the extra columns and a Status dropdown, saves the settings, and installs both triggers. The execution log prints the form link. |
+| `connectExistingSheet` | You already have a form and Sheet: saves the settings and installs the triggers. |
+| `updateEndpoint` | **After any `CONFIG` edit:** a new tunnel URL, a different event slug, a new secret. |
+| `showEndpoint` | Shows the address and event slug the Sheet will actually use. |
+| `backfillApplicantIds` | Your Sheet has responses from before the script was installed. Run once. |
+
+> **The rule that causes most problems:** `Code.gs` never reads `CONFIG`. It reads the settings **saved** by `setupTestForm`, `connectExistingSheet` or `updateEndpoint`. Editing and saving `CONFIG` alone changes nothing. After every edit, run `updateEndpoint`, then `showEndpoint` to confirm.
+
+**Keep your real values out of the repo.** The committed `Setup.gs` has placeholders on purpose. Your tunnel URL and `INGEST_SECRET` belong only in the Apps Script editor.
 
 For a Sheet to connect:
 
@@ -122,41 +174,89 @@ For a Sheet to connect:
 
    If your questions are worded differently, edit the values in `HEADERS` rather than renaming columns. Google's built-in "Collect email addresses" setting already produces `Email Address`.
 3. **Status** is Accepted, Waitlisted, Rejected or Withdrawn. Blank means undecided.
-4. **Script properties:** `ENDPOINT` (app URL + `/api/ingest/sheet`), `EVENT_SLUG` (an event that exists), and `INGEST_SECRET` (the same value as `SHEET_INGEST_SECRET` in that app's env).
-5. **Both installable triggers exist** (On form submit, On edit), created by an account that keeps edit access. Use the club's account for real events.
+4. **Settings:**
+   - `ENDPOINT`: app URL + `/api/ingest/sheet`
+   - `EVENT_SLUG`: an event that exists **right now** (after a reset, only `demo`, and only once you've re-seeded)
+   - `INGEST_SECRET`: the same value as `SHEET_INGEST_SECRET` in `.env.local`
+5. **Exactly one pair of triggers** (On form submit, On edit). Check at [script.google.com/home/triggers](https://script.google.com/home/triggers). Leftover triggers from an older script keep calling old addresses; delete them.
 6. **One event per Sheet.**
+
+To re-send a row after fixing something, change its Status to **Waitlisted** and back to **Accepted**; the new result appears in `Sync Status`.
 
 A college Google Workspace account may block Apps Script from contacting outside servers (every sync shows `ERROR`). If so, use the club's personal Google account.
 
 ---
 
-## A tunnel URL that never changes
+## Letting Google reach your laptop
 
-Google's servers need a public HTTPS address to reach your laptop. Cloudflare "quick tunnels" change URL on every restart. **Tailscale Funnel** gives you a free URL that stays the same (`https://<your-mac>.<your-tailnet>.ts.net`), with no domain to buy and no warning page.
+Google's servers need a public HTTPS address to reach the app on your laptop. A **Cloudflare quick tunnel** provides one, free, with no account.
 
-**One-time setup**
-
-1. Install the Tailscale Mac app (`brew install --cask tailscale`, or from tailscale.com/download) and sign in.
-2. In the Tailscale admin console, turn on **MagicDNS** and **HTTPS certificates**. The first time you run Funnel, the CLI prints a link to approve Funnel for this Mac.
-3. Start it in the background:
+1. **Start the tunnel** in its own terminal tab and **leave it running**:
    ```bash
-   tailscale funnel --bg 3000
-   tailscale funnel status        # shows your https://….ts.net URL
+   cloudflared tunnel --url http://localhost:3000
    ```
-   It stays on until you turn it off, and the URL survives restarts.
-4. Set the Sheet's `ENDPOINT` to `https://<your-mac>.<your-tailnet>.ts.net/api/ingest/sheet`. This is a one-time step now.
-5. To open pass pages on your phone through it, add the host to `.env.local`, then restart `pnpm dev`:
+   It prints an address like `https://defend-excessive-tower-lil.trycloudflare.com`.
+2. **Check that it reaches your app** (with `pnpm dev` running):
    ```bash
-   DEV_PUBLIC_HOST=<your-mac>.<your-tailnet>.ts.net
+   curl -s -o /dev/null -w "%{http_code}\n" -X POST https://<your-tunnel>.trycloudflare.com/api/ingest/sheet -H "Content-Type: application/json" -d '{}'
    ```
+   `401` is correct: the route is reachable and refuses unsigned requests. `502` means `pnpm dev` isn't running.
+3. **Point the Sheet at it.** Set `CONFIG.ENDPOINT` to `https://<your-tunnel>.trycloudflare.com/api/ingest/sheet`, run **`updateEndpoint`**, then **`showEndpoint`** to confirm.
+4. **Optional:** to open pass pages on your phone through the tunnel, set this in `.env.local` and restart `pnpm dev`:
+   ```bash
+   DEV_PUBLIC_HOST=<your-tunnel>.trycloudflare.com
+   ```
+   Then replace `http://localhost:3000` with the tunnel address in a pass link.
 
-**Turn it off** when you're not testing: `tailscale funnel reset`. While Funnel is on, your dev server is reachable from the internet. Staff pages still require sign-in and the Sheet endpoint requires the signed secret, but there's no reason to leave it open.
+**The address changes every time `cloudflared` restarts,** including after a reboot. When it does, repeat steps 2–4. For a demo, start it once beforehand and leave it running.
 
-Keep `NEXT_PUBLIC_APP_ORIGIN=http://localhost:3000`. QR codes then match the laptop scanner, and the tunnel is only used for the Sheet and for viewing pass pages on your phone.
+Keep `NEXT_PUBLIC_APP_ORIGIN=http://localhost:3000`. QR codes then match the laptop scanner; the tunnel is only for the Sheet and for viewing pass pages on your phone.
 
-**Alternatives:**
-- **ngrok's free static domain** is also stable. It puts a warning page in front of browser visits, which is fine for the Sheet but annoying on your phone.
-- **Once the club owns a domain** (you'll need one for Resend anyway), a named Cloudflare tunnel on something like `dev.yourclub.ca` is the permanent version of this setup.
+**Why not something permanent?**
+- **Tailscale Funnel** gives a fixed URL and worked from a browser, but Google Apps Script refused it with `Address unavailable`.
+- **ngrok's free static domain** is stable but shows a warning page to browsers.
+- **The permanent fix is either of these.** Once the club owns a domain (you'll need one for Resend anyway), use a named Cloudflare tunnel on something like `dev.yourclub.ca`. Or, better, deploy to Vercel ([docs/launch-checklist.md](docs/launch-checklist.md)): the Sheet then points at a fixed Vercel address and no tunnel is needed.
+
+---
+
+## Troubleshooting
+
+### `Sync Status` in the Sheet
+
+| It says | Meaning | Fix |
+|---------|---------|-----|
+| `PASS_QUEUED …` | Worked. The QR appears in `.mail/qr/` within seconds | — |
+| `UNCHANGED …` | Already accepted earlier, so no new email | Participants tab → **Resend** |
+| `ERROR HTTP 502` | The tunnel is up but the app isn't answering | Start `pnpm dev` |
+| `ERROR HTTP 401` | Secret mismatch, or your Mac's clock is off by more than 5 minutes | Compare `INGEST_SECRET` with `grep SHEET_INGEST_SECRET .env.local`; run `updateEndpoint` |
+| `ERROR HTTP 404` | `EVENT_SLUG` names an event that doesn't exist | Run `showEndpoint`; then either `pnpm seed`, or fix `CONFIG` and run `updateEndpoint` |
+| `ERROR … DNS error: …trycloudflare.com` | The Sheet uses an old tunnel address | New address into `CONFIG`, run `updateEndpoint` |
+| `ERROR … Address unavailable` | Google can't reach that address (seen with Tailscale Funnel) | Use a Cloudflare tunnel |
+| `INVALID:external_id` | The row has no Applicant ID | Run `backfillApplicantIds` |
+| `INVALID:<field>` | That cell is missing or malformed | Fix the cell, toggle Status |
+| No change at all | The trigger didn't run | Apps Script → **Executions**; check [your triggers](https://script.google.com/home/triggers) |
+
+`ERROR` results end with a timestamp (UTC), so you can tell a fresh error from an old one.
+
+### In the app
+
+| Problem | Fix |
+|---------|-----|
+| "Organizer access only" | Sign in again as the right account (in that window, via Mailpit). Invites are picked up at every sign-in. If it persists, grant the role in Studio (`http://127.0.0.1:54323`), SQL editor, with the query below. |
+| No `.mail/qr` folder after accepting someone | Check `Sync Status` first. If `.mail/` has `.eml` files but no `qr/` folder, restart `pnpm dev`. |
+| Every scan says "Not a Passline code" | `NEXT_PUBLIC_APP_ORIGIN` must be exactly `http://localhost:3000` with no trailing slash, and you must scan from `localhost:3000`. Restart `pnpm dev` after changing it. |
+| Every scan says "Unknown code" | The QR image is from before the last `pnpm db:reset`. Use fresh images. |
+| "Checkpoint closed" | Open it on the Checkpoints tab. |
+| `SUPABASE_SERVICE_ROLE_KEY is not set` | `.env.local` is missing its keys. Redo "First time only". |
+
+Query to grant the organizer role:
+
+```sql
+insert into event_staff (event_id, user_id, role)
+select e.id, u.id, 'organizer' from events e, auth.users u
+where e.slug = 'demo' and u.email = 'organizer@example.test'
+on conflict (event_id, user_id) do update set role = 'organizer';
+```
 
 ---
 
